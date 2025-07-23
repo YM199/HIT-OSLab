@@ -9,23 +9,22 @@ SYSLEN  = 17				! sectors occupied.
 
 entry start
 start:
-	jmpi	go,#BOOTSEG
-go:	mov	ax,cs
-	mov	ds,ax
-	mov	ss,ax
-	mov	sp,#0x400		! arbitrary value >>512
+	mov	ax,#BOOTSEG
+	mov	ds,ax ! 设置数据 段地址为0x07c0
+	mov	ss,ax ! 设置堆栈 段地址为0x07c0
+	mov	sp,#0x400 ! 设置栈顶物理地址为0x7c00+0x400=0x8000(栈底为0x7c00)
 
-! ok, we've written the message, now
+! 读取head.s
 load_system:
-	mov	dx,#0x0000
-	mov	cx,#0x0002
+	mov	dx,#0x0000 ! 磁盘号0(A盘)
+	mov	cx,#0x0002 ! 起始扇区号2
 	mov	ax,#SYSSEG
-	mov	es,ax
-	xor	bx,bx
-	mov	ax,#0x200+SYSLEN
-	int 	0x13
-	jnc	ok_load
-die:	jmp	die
+	mov	es,ax ! 设置目标段地址0x1000(代码加载到物理地址0x10000)
+	xor	bx,bx ! 偏移地址0
+	mov	ax,#0x200+SYSLEN ! AH=0X02(功能号2表示读取扇区) AL=0x11(扇区数量)
+	int 0x13 ! 调用BIOS中断读取扇区
+	jnc	ok_load ! 如果CF=0,则跳转到ok_load
+die:	jmp	die ! 如果CF=1,则死循环
 
 ! now we want to move to protected mode ...
 ok_load:
