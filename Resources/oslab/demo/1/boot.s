@@ -26,44 +26,44 @@ load_system:
 	jnc	ok_load ! 如果CF=0,则跳转到ok_load
 die:	jmp	die ! 如果CF=1,则死循环
 
-! now we want to move to protected mode ...
+! 加载系统
 ok_load:
-	cli			! no interrupts allowed !
+	cli	! 关闭中断
 	mov	ax, #SYSSEG
-	mov	ds, ax
-	xor	ax, ax
-	mov	es, ax
-	mov	cx, #0x2000
-	sub	si,si
-	sub	di,di
+	mov	ds, ax ! 设置数据段地址0x1000
+	xor	ax, ax ! 清空ax寄存器
+	mov	es, ax ! 设置附加段地址0x0000
+	mov	cx, #0x2000 ! 设置拷贝字节数为0x2000
+	sub	si,si ! ds:si=0x1000:00000
+	sub	di,di ! es:di=0x0000:00000
 	rep
-	movw
+	movw ! 将ds:si指向的0x2000字节数据拷贝到es:di指向的0x0000:00000字节空间
 	mov	ax, #BOOTSEG
-	mov	ds, ax
-	lidt	idt_48		! load idt with 0,0
-	lgdt	gdt_48		! load gdt with whatever appropriate
+	mov	ds, ax ! 设置数据段地址0x07c0
+	lidt	idt_48	! 加载中断描述符表
+	lgdt	gdt_48	! 加载全局描述符表
 
-! absolute address 0x00000, in 32-bit protected mode.
-	mov	ax,#0x0001	! protected mode (PE) bit
-	lmsw	ax		! This is it!
-	jmpi	0,8		! jmp offset 0 of segment 8 (cs)
+! 进入保护模式
+	mov	ax,#0x0001
+	lmsw	ax		! 设置CR0寄存器的PE位，进入保护模式
+	jmpi	0,8		! 跳转至偏移地址0，段选择子8， 使用代码段描述符
 
-gdt:	.word	0,0,0,0		! dummy
-
+gdt:	.word	0,0,0,0		! 空描述符
+    ! 代码段描述符
 	.word	0x07FF		! 8Mb - limit=2047 (2048*4096=8Mb)
 	.word	0x0000		! base address=0x00000
 	.word	0x9A00		! code read/exec
 	.word	0x00C0		! granularity=4096, 386
-
+    ! 数据段描述符
 	.word	0x07FF		! 8Mb - limit=2047 (2048*4096=8Mb)
 	.word	0x0000		! base address=0x00000
 	.word	0x9200		! data read/write
 	.word	0x00C0		! granularity=4096, 386
 
-idt_48: .word	0		! idt limit=0
-	.word	0,0		! idt base=0L
-gdt_48: .word	0x7ff		! gdt limit=2048, 256 GDT entries
-	.word	0x7c00+gdt,0	! gdt base = 07xxx
+idt_48: .word	0	! 中断描述符表长度为0
+	.word	0,0	! 中断描述符表基地址为0
+gdt_48: .word	0x7ff	! GDT表长度为2048
+	.word	0x7c00+gdt,0	! GDT表基地址为0x7c00+gdt
 .org 510
-	.word   0xAA55
+	.word   0xAA55 ! 引导标志
 
