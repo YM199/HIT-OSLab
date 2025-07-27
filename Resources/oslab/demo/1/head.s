@@ -183,15 +183,16 @@ lgdt_opcode:
 .align 8 # 对齐到8的倍数
 idt:	.fill 256,8,0		# idt表，未初始化，256个描述符，每个描述符8字节
 
-gdt:	.quad 0x0000000000000000	# 空描述符
-	.quad 0x00c09a00000007ff	/* 8Mb 0x08, base = 0x00000, 段基址 */
-	.quad 0x00c09200000007ff	/* 8Mb 0x10 */
-	.quad 0x00c0920b80000002	/* screen 0x18 - for display */
+gdt:	
+	.quad 0x0000000000000000	# 空描述符
+	.quad 0x00c09a00000007ff	# 内核代码段
+	.quad 0x00c09200000007ff	# 内核数据段
+	.quad 0x00c0920b80000002	# 内核数据段，屏幕显示
 
-	.word 0x0068, tss0, 0xe900, 0x0	# TSS0 descr 0x20
-	.word 0x0040, ldt0, 0xe200, 0x0	# LDT0 descr 0x28
-	.word 0x0068, tss1, 0xe900, 0x0	# TSS1 descr 0x30
-	.word 0x0040, ldt1, 0xe200, 0x0	# LDT1 descr 0x38
+	.word 0x0068, tss0, 0xe900, 0x0	# 任务状态段TSS0
+	.word 0x0040, ldt0, 0xe200, 0x0	# 局部描述符表LDT0
+	.word 0x0068, tss1, 0xe900, 0x0	# 任务状态段TSS1
+	.word 0x0040, ldt1, 0xe200, 0x0	# 局部描述符表LDT1
 end_gdt:
 	.fill 128,4,0
 init_stack:           # 用户栈
@@ -200,19 +201,22 @@ init_stack:           # 用户栈
 
 /*************************************/
 .align 8
-ldt0:	.quad 0x0000000000000000
-	.quad 0x00c0fa00000003ff	# 0x0f, base = 0x00000
-	.quad 0x00c0f200000003ff	# 0x17
+ldt0:	
+    .quad 0x0000000000000000 # 空描述符
+	.quad 0x00c0fa00000003ff # 用户代码段
+	.quad 0x00c0f200000003ff # 用户数据段
 
-tss0:	.long 0 			/* back link */
-	.long krn_stk0, 0x10		/* esp0, ss0 */
-	.long 0, 0, 0, 0, 0		/* esp1, ss1, esp2, ss2, cr3 */
-	.long 0, 0, 0, 0, 0		/* eip, eflags, eax, ecx, edx */
-	.long 0, 0, 0, 0, 0		/* ebx esp, ebp, esi, edi */
-	.long 0, 0, 0, 0, 0, 0 		/* es, cs, ss, ds, fs, gs */
-	.long LDT0_SEL, 0x8000000	/* ldt, trace bitmap */
+# 任务状态段TSS0
+tss0:	
+	.long 0 			       # 无前一个任务
+	.long krn_stk0, 0x10	   # 内核栈0, esp0 = 0x10
+	.long 0, 0, 0, 0, 0		   # 特权级1-2的栈指针和段选择子（未使用）
+	.long 0, 0, 0, 0, 0		   
+	.long 0, 0, 0, 0, 0		   # 通用寄存器状态
+	.long 0, 0, 0, 0, 0, 0 	   # 段寄存器状态
+	.long LDT0_SEL, 0x8000000  # 局部描述符表LDT0，调试位图
 
-	.fill 128,4,0
+	.fill 128,4,0 # 填充128个4字节的0, 为TSS0分配内核栈空间
 krn_stk0:
 #	.long 0
 
@@ -222,9 +226,9 @@ ldt1:	.quad 0x0000000000000000
 	.quad 0x00c0fa00000003ff	# 0x0f, base = 0x00000
 	.quad 0x00c0f200000003ff	# 0x17
 
-tss1:	.long 0 			/* back link */
-	.long krn_stk1, 0x10		/* esp0, ss0 */
-	.long 0, 0, 0, 0, 0		/* esp1, ss1, esp2, ss2, cr3 */
+tss1:	.long 0 			  # 无前一个任务
+	.long krn_stk1, 0x10	  # 内核栈1, esp0 = 0x10
+	.long 0, 0, 0, 0, 0		  # 特权级1-2的栈指针和段选择子（未使用）
 	.long task1, 0x200		/* eip, eflags */
 	.long 0, 0, 0, 0		/* eax, ecx, edx, ebx */
 	.long usr_stk1, 0, 0, 0		/* esp, ebp, esi, edi */
