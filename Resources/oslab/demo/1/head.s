@@ -12,7 +12,7 @@ startup_32:
 	movl $0x10,%eax
 	mov %ax,%ds
 #	mov %ax,%es
-	lss init_stack,%esp
+	lss init_stack,%esp # 栈顶指向init_stack
 
 # setup base fields of descriptors.
 	call setup_idt
@@ -77,20 +77,21 @@ setup_gdt:
 	lgdt lgdt_opcode
 	ret
 
+# 将所有256个中断描述符都设置为指向默认的中断处理程序ignore_int
 setup_idt:
 	lea ignore_int,%edx
 	movl $0x00080000,%eax
-	movw %dx,%ax		/* selector = 0x0008 = cs */
-	movw $0x8E00,%dx	/* interrupt gate - dpl=0, present */
-	lea idt,%edi
+	movw %dx,%ax		# eax = 0x00080000 + ignore_int
+	movw $0x8E00,%dx	
+	lea idt,%edi        # edi指向idt表
 	mov $256,%ecx
 rp_sidt:
-	movl %eax,(%edi)
-	movl %edx,4(%edi)
-	addl $8,%edi
-	dec %ecx
-	jne rp_sidt
-	lidt lidt_opcode
+	movl %eax,(%edi)    # 将eax的值写入idt表(低32位)，描述符类型是中断门
+	movl %edx,4(%edi)   # 将edx的值写入idt表(高32位)，描述符类型是中断门
+	addl $8,%edi        # 移动到下一个描述符位置（每个描述符8字节）
+	dec %ecx            # 递减计数器
+	jne rp_sidt         # 如果计数器不为0，则继续循环
+	lidt lidt_opcode    # 加载idt寄存器
 	ret
 
 # -----------------------------------
@@ -171,19 +172,19 @@ system_interrupt:
 current:.long 0
 scr_loc:.long 0
 
-.align 2
+.align 2 # 对齐到2的倍数
 lidt_opcode:
-	.word 256*8-1		# idt contains 256 entries
-	.long idt		# This will be rewrite by code. 
+	.word 256*8-1	# idt表有256个描述符，每个描述符8字节，所以总大小是256*8-1
+	.long idt		# 指向idt表
 lgdt_opcode:
-	.word (end_gdt-gdt)-1	# so does gdt 
-	.long gdt		# This will be rewrite by code.
+	.word (end_gdt-gdt)-1	# 计算gdt表的大小
+	.long gdt		# 指向gdt表
 
-	.align 8
-idt:	.fill 256,8,0		# idt is uninitialized
+.align 8 # 对齐到8的倍数
+idt:	.fill 256,8,0		# idt表，未初始化，256个描述符，每个描述符8字节
 
-gdt:	.quad 0x0000000000000000	/* NULL descriptor */
-	.quad 0x00c09a00000007ff	/* 8Mb 0x08, base = 0x00000 */
+gdt:	.quad 0x0000000000000000	# 空描述符
+	.quad 0x00c09a00000007ff	/* 8Mb 0x08, base = 0x00000, 段基址 */
 	.quad 0x00c09200000007ff	/* 8Mb 0x10 */
 	.quad 0x00c0920b80000002	/* screen 0x18 - for display */
 
@@ -193,7 +194,7 @@ gdt:	.quad 0x0000000000000000	/* NULL descriptor */
 	.word 0x0040, ldt1, 0xe200, 0x0	# LDT1 descr 0x38
 end_gdt:
 	.fill 128,4,0
-init_stack:                          # Will be used as user stack for task0.
+init_stack:           # 用户栈
 	.long init_stack
 	.word 0x10
 
